@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0f0f11;
+            --surface: #1a1a1f;
+            --surface2: #222228;
+            --accent: #c8ff00;
+            --accent2: #ff6b35;
+            --text: #f0f0f0;
+            --muted: #666;
+            --btn-num: #1e1e24;
+            --btn-op: #252530;
+            --btn-eq: var(--accent);
+            --btn-fn: #2a2a18;
+            --radius: 12px;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(ellipse 80% 60% at 50% -10%, rgba(200,255,0,0.08), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 110%, rgba(255,107,53,0.06), transparent);
+            font-family: 'Syne', sans-serif;
+        }
+
+        .calculator {
+            width: 320px;
+            background: var(--surface);
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow:
+                0 40px 80px rgba(0,0,0,0.6),
+                0 0 0 1px rgba(200,255,0,0.05),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+
+        /* ── شاشة النتيجة ── */
+        .screen {
+            padding: 28px 24px 20px;
+            background: var(--surface);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            position: relative;
+        }
+
+        .expression {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            color: var(--muted);
+            text-align: right;
+            min-height: 20px;
+            letter-spacing: 0.5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .result-display {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 42px;
+            color: var(--text);
+            text-align: right;
+            margin-top: 6px;
+            min-height: 56px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transition: color 0.2s;
+            letter-spacing: -1px;
+        }
+
+        .result-display.error {
+            color: var(--accent2);
+            font-size: 28px;
+        }
+
+        /* ── شبكة الأزرار ── */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2px;
+            padding: 12px;
+            background: var(--bg);
+        }
+
+        .btn-grid button {
+            height: 66px;
+            font-size: 18px;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: transform 0.08s, filter 0.15s, background 0.15s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-grid button::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0);
+            transition: background 0.15s;
+            border-radius: inherit;
+        }
+
+        .btn-grid button:hover::after {
+            background: rgba(255,255,255,0.07);
+        }
+
+        .btn-grid button:active {
+            transform: scale(0.94);
+        }
+
+        /* أنواع الأزرار */
+        .btn-num {
+            background: var(--btn-num);
+            color: var(--text);
+        }
+
+        .btn-op {
+            background: var(--btn-op);
+            color: var(--accent);
+            font-size: 22px;
+        }
+
+        .btn-fn {
+            background: var(--btn-fn);
+            color: var(--accent);
+            font-size: 15px;
+        }
+
+        .btn-clear {
+            background: rgba(255, 107, 53, 0.12);
+            color: var(--accent2);
+        }
+
+        .btn-del {
+            background: rgba(255, 107, 53, 0.08);
+            color: var(--accent2);
+            font-size: 20px;
+        }
+
+        .btn-eq {
+            grid-column: span 2;
+            background: var(--accent);
+            color: #0f0f11;
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+
+        .btn-eq:hover::after {
+            background: rgba(0,0,0,0.08);
+        }
+
+        /* تأثير النبضة عند الضغط */
+        @keyframes ripple {
+            from { opacity: 0.4; transform: scale(0); }
+            to   { opacity: 0;   transform: scale(3); }
+        }
+
+        .ripple-circle {
+            position: absolute;
+            width: 50px; height: 50px;
+            background: rgba(200,255,0,0.3);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: ripple 0.4s ease-out forwards;
+            transform-origin: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="calculator">
+    <div class="screen">
+        <div class="expression" id="expression"></div>
+        <div class="result-display" id="result">0</div>
+    </div>
+
+    <div class="btn-grid">
+        <!-- صف 1 -->
+        <button class="btn-clear" data-action="clear">AC</button>
+        <button class="btn-del"   data-action="del">⌫</button>
+        <button class="btn-fn"    data-action="percent">%</button>
+        <button class="btn-op"    data-value="/">÷</button>
+
+        <!-- صف 2 -->
+        <button class="btn-num" data-value="7">7</button>
+        <button class="btn-num" data-value="8">8</button>
+        <button class="btn-num" data-value="9">9</button>
+        <button class="btn-op"  data-value="*">×</button>
+
+        <!-- صف 3 -->
+        <button class="btn-num" data-value="4">4</button>
+        <button class="btn-num" data-value="5">5</button>
+        <button class="btn-num" data-value="6">6</button>
+        <button class="btn-op"  data-value="-">−</button>
+
+        <!-- صف 4 -->
+        <button class="btn-num" data-value="1">1</button>
+        <button class="btn-num" data-value="2">2</button>
+        <button class="btn-num" data-value="3">3</button>
+        <button class="btn-op"  data-value="+">+</button>
+
+        <!-- صف 5 -->
+        <button class="btn-num" data-value=".">.</button>
+        <button class="btn-num" data-value="0">0</button>
+        <button class="btn-eq"  data-action="equals">=</button>
+    </div>
+</div>
+
+<script>
+    const resultEl    = document.getElementById('result');
+    const expressionEl = document.getElementById('expression');
+
+    let current    = '';   // ما يُكتب حاليًا
+    let expression = '';   // التعبير الكامل
+    let justEvaled = false;// هل تمّ حساب نتيجة للتو؟
+
+    // ── أزرار ──
+    document.querySelectorAll('.btn-grid button').forEach(btn => {
+        btn.addEventListener('click', e => {
+            addRipple(e, btn);
+            const action = btn.dataset.action;
+            const value  = btn.dataset.value;
+
+            if      (action === 'clear')   handleClear();
+            else if (action === 'del')     handleDel();
+            else if (action === 'percent') handlePercent();
+            else if (action === 'equals')  handleEquals();
+            else if (value)                handleInput(value);
+
+            render();
+        });
+    });
+
+    function handleClear() {
+        current = '';
+        expression = '';
+        justEvaled = false;
+    }
+
+    function handleDel() {
+        if (justEvaled) { handleClear(); return; }
+        current = current.slice(0, -1);
+        expression = expression.slice(0, -1);
+    }
+
+    function handlePercent() {
+        if (!expression) return;
+        try {
+            // احسب التعبير الحالي ثم اقسمه على 100
+            const val = safeEval(expression);
+            expression = String(val / 100);
+            current    = expression;
+            justEvaled = true;
+        } catch { showError(); }
+    }
+
+    function handleEquals() {
+        if (!expression) return;
+        try {
+            const val = safeEval(expression);
+            expressionEl.textContent = expression + ' =';
+            expression = String(val);
+            current    = expression;
+            justEvaled = true;
+        } catch { showError(); }
+    }
+
+    function handleInput(value) {
+        const isOperator = ['+', '-', '*', '/'].includes(value);
+
+        // بعد نتيجة: إذا كتب رقمًا → ابدأ من جديد، إذا كتب عملية → تابع من النتيجة
+        if (justEvaled) {
+            if (isOperator) {
+                justEvaled = false;
+            } else {
+                expression = '';
+                justEvaled = false;
+            }
+        }
+
+        // لا تبدأ بعملية إلا السالب (للأعداد السالبة)
+        if (isOperator && !expression && value !== '-') return;
+
+        // لا عمليتين متتاليتين
+        if (isOperator && expression && isOperatorChar(expression.slice(-1))) {
+            expression = expression.slice(0, -1);
+        }
+
+        // نقطة عشرية واحدة فقط في كل رقم
+        if (value === '.') {
+            const parts = expression.split(/[\+\-\*\/]/);
+            if (parts[parts.length - 1].includes('.')) return;
+        }
+
+        expression += value;
+        current     = value;
+    }
+
+    function render() {
+        const display = expression || '0';
+        // تصغير الخط إذا كان النص طويلًا
+        const len = display.length;
+        resultEl.style.fontSize = len > 14 ? '22px' : len > 9 ? '32px' : '42px';
+        resultEl.classList.remove('error');
+        resultEl.textContent = formatDisplay(display);
+
+        if (!justEvaled) expressionEl.textContent = '';
+    }
+
+    function formatDisplay(str) {
+        // أظهر رموزًا أجمل
+        return str.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−');
+    }
+
+    function showError() {
+        resultEl.textContent = 'خطأ في الإدخال';
+        resultEl.classList.add('error');
+        expression = '';
+        current    = '';
+        justEvaled = false;
+    }
+
+    function isOperatorChar(ch) {
+        return ['+', '-', '*', '/'].includes(ch);
+    }
+
+    // ── بديل آمن لـ eval ──
+    function safeEval(expr) {
+        // السماح فقط بالأرقام والعمليات الأساسية والنقطة
+        if (!/^[\d\+\-\*\/\.\(\)\s]+$/.test(expr)) throw new Error('Invalid');
+        // eslint-disable-next-line no-new-func
+        const result = Function('"use strict"; return (' + expr + ')')();
+        if (!isFinite(result)) throw new Error('Infinity');
+        // تقريب لتجنب أخطاء الفاصلة العائمة
+        return parseFloat(result.toPrecision(12));
+    }
+
+    // ── تأثير Ripple ──
+    function addRipple(e, btn) {
+        const circle = document.createElement('span');
+        circle.className = 'ripple-circle';
+        const rect = btn.getBoundingClientRect();
+        circle.style.left = (e.clientX - rect.left - 25) + 'px';
+        circle.style.top  = (e.clientY - rect.top  - 25) + 'px';
+        btn.appendChild(circle);
+        circle.addEventListener('animationend', () => circle.remove());
+    }
+
+    // ── دعم لوحة المفاتيح ──
+    document.addEventListener('keydown', e => {
+        if ('0123456789'.includes(e.key)) handleInput(e.key);
+        else if (['+', '-', '*', '/'].includes(e.key)) handleInput(e.key);
+        else if (e.key === '.') handleInput('.');
+        else if (e.key === 'Enter' || e.key === '=') handleEquals();
+        else if (e.key === 'Backspace') handleDel();
+        else if (e.key === 'Escape') handleClear();
+        else if (e.key === '%') handlePercent();
+        render();
+    });
+</script>
+</body>
+</html>
